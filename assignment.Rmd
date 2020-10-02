@@ -2,7 +2,7 @@
 title: "Machine Learning Assignment"
 author: "EC"
 date: "2/10/2020"
-output: html_document
+output: pdf_document
 ---
 
 ```{r setup, include=FALSE}
