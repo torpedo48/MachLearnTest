@@ -1,0 +1,87 @@
+---
+title: "Machine Learning Assignment"
+author: "EC"
+date: "2/10/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+## Summary
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
+
+The goal of your project is to predict the manner in which the test subjects did the exercise. We preprocess the data, fit a random forest model and test the overall accuracy reached.
+
+## Data loading and preprocessing
+
+First, we download and load the files. Then, we exclude the first 7 variables (containing metadata) and all variables that contains more than 50% NAs or empty values, or with near zero variance.
+
+```{r, cache=TRUE}
+download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv", "training.csv",method="curl")
+download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv", "testing.csv",method="curl")
+
+training <- read.csv("training.csv")
+testing <- read.csv("testing.csv")
+
+
+library(dplyr)
+library(caret)
+training <- training[,-nearZeroVar(training)]
+training <- training %>%
+  select(-(1:7)) %>%
+  select(where(function(x) {mean(is.na(x)) < 0.5})) %>%
+  select(where(function(x) {mean(x=="") < 0.5}))
+```
+
+We then further split the training database in a training and testing subsample.
+```{r}
+label <- createDataPartition(training$classe, p = 0.6, list = FALSE)
+train <- training[label, ]
+test <- training[-label, ]
+```
+
+
+
+## Machine learning training
+
+Before training the model, we set the seed. We will use a random forest model, because of the categorical nature of the outcome variable, with k-fold cross-validation.
+
+```{r model training, cache=TRUE}
+library(parallel)
+library(doParallel)
+set.seed(48)
+cluster <- makeCluster(7)
+registerDoParallel(cluster)
+trControl <- trainControl(method = "cv", number = 3, verboseIter=FALSE, allowParallel = TRUE)
+
+trainFit <- train(classe ~ ., data = train,model="rf", trControl = trControl)
+stopCluster(cluster)
+```
+
+```{r}
+plot(trainFit)
+trainFit$finalModel
+plot(trainFit$finalModel)
+```
+The final model seems to have an acceptable error rate. We now see how it performs on the test portion of the data.
+
+```{r}
+predictions <- predict(trainFit,test)
+confusionMatrix(predictions,as.factor(test$classe))
+```
+We reached an accuracy of 99.2%, which can be considered acceptable for this project.
+
+## Validation
+
+Finally, we use the prediction model on the testing dataframe.
+
+```{r}
+predictions2 <- predict(trainFit,testing)
+predictions2
+```
+
+
+
+
